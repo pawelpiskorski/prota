@@ -8,7 +8,6 @@ import argparse
 
 logging.basicConfig(level=logging.DEBUG)
 
-
 class Project:
     def __init__(self, fname="tasks.pickle"):
 
@@ -28,6 +27,7 @@ class Project:
                 0: {
                     'id': 0,
                     'm': 'the anonymous project',
+                    's': 'running',
                     'ch': []
                     # no pid defined in root task
                 }
@@ -74,11 +74,12 @@ class Project:
         :return:
         """
         if tid == 0:
-            self.
+            self.start()
+            return
+
         task = self.p['t'].pop(tid)
         for sub_id in task['ch']:
             self.rm_task(sub_id)
-
 
     def childrenids(self, tid):
         return self.p['t'][tid]['ch']
@@ -111,10 +112,11 @@ class Project:
 # commands
 
 def start(params):
-    logging.info("starting projectect: " + params.m)
+    logging.info("starting project: " + params.m)
     project = Project("")
     task = {
-        'm': params.m}
+        'm': params.m
+    }
     project.update(0, task)
     project.save()
 
@@ -123,11 +125,15 @@ def add(params):
     logging.info("adding task: " + params.m)
     task = {
         'm': params.m,
+        'd': params.d,
+        'o': params.o,
+        's': params.s
     }
 
     project = Project()
 
-    project.add_task(task, pid=params.parent, peer_id=params.after)
+    project.add_task(dict((a, b) for (a, b) in task.iteritems() if b is not None),
+                     pid=params.parent, peer_id=params.after)
     project.save()
 
 
@@ -139,6 +145,17 @@ def ls(params):
 
 def edit(params):
     logging.info("editing task: " + str(params.tid))
+    task = {
+        'm': params.m,
+        'd': params.d,
+        'o': params.o,
+        's': params.s
+    }
+
+    project = Project()
+    project.update(params.tid, dict((a, b) for (a, b) in task.iteritems() if b is not None))
+    project.save()
+
 
 
 def move(params):
@@ -147,47 +164,45 @@ def move(params):
 
 def remove(params):
     logging.info("deleting task: " + str(params.tid))
-
+    project = Project()
+    project.rm_task(params.tid)
     
-parser = argparse.ArgumentParser(description='simple projectect TAsk management.')
+parser = argparse.ArgumentParser(description='simple project TAsk management.')
 subparsers = parser.add_subparsers()
 
-subparser = subparsers.add_parser('start', help="start new projectect")
-subparser.add_argument('m', type=unicode, help="projectect title")
+subparser = subparsers.add_parser('start', help="start new project")
+subparser.add_argument('m', type=unicode, help="project title")
 subparser.set_defaults(func=start)
 
-subparser = subparsers.add_parser('ls', help="list projectect file")
-subparser.add_argument('tid', type=int, default=0, nargs='?', help="id of task to print, 0 (whole projectect) by default")
+subparser = subparsers.add_parser('ls', help="list project file")
+subparser.add_argument('tid', type=int, default=0, nargs='?', help="id of task to print, 0 (whole project) by default")
 subparser.set_defaults(func=ls)
 
 subparser = subparsers.add_parser('add', help="add new task")
 subparser.add_argument('-p', '--parent', type=int, default=0, nargs='?', help="parent id for new task")
 subparser.add_argument('-a', '--after', type=int, default=0, nargs='?', help="id of task that will precede new task")
-subparser.add_argument('-d', '--deadline', type=unicode, nargs='?', help="deadline")
-subparser.add_argument('-o', '--owner', type=unicode, nargs='?', default="", help="owner")
-subparser.add_argument('-s', '--state', type=unicode, nargs='?', default="new", help="task state")
-subparser.add_argument('m', type=unicode, help="task title")
+subparser.add_argument('-d', '--deadline', type=unicode, nargs='?', default=None, help="deadline")
+subparser.add_argument('-o', '--owner', type=unicode, nargs='?', default=None, help="owner")
+subparser.add_argument('-s', '--state', choices=['pending', 'running', 'done'], nargs='?', default="pending", help="task state")
+subparser.add_argument('m', type=unicode, help="task description")
 subparser.set_defaults(func=add)
 
 subparser = subparsers.add_parser('e', help="edit task")
 subparser.add_argument('tid', type=int, default=0, help="task id")
-subparser.add_argument('-m', type=unicode, help="projectect title")
-subparser.add_argument('-d', '--deadline', type=unicode, nargs='?', help="deadline")
-subparser.add_argument('-o', '--owner', type=unicode, nargs='?', help="owner")
-subparser.add_argument('-s', '--state', type=unicode, nargs='?', help="owner")
+subparser.add_argument('-d', '--deadline', type=unicode, nargs='?', default=None, help="deadline")
+subparser.add_argument('-o', '--owner', type=unicode, nargs='?', default=None, help="owner")
+subparser.add_argument('-s', '--state', choices=['pending', 'running', 'done'], nargs='?', default=None, help="task state")
+subparser.add_argument('-m', type=unicode, default=None, help="task description")
 subparser.set_defaults(func=edit)
 
 subparser = subparsers.add_parser('rm', help="remove task")
 subparser.add_argument('tid', type=int, default=0, help="id of parent task")
-subparser.add_argument('m', type=unicode, help="projectect title")
-subparser.add_argument('-d', '--deadline', type=unicode, nargs='?', help="deadline")
-subparser.add_argument('-o', '--owner', type=unicode, nargs='?', help="owner")
 subparser.set_defaults(func=remove)
 
 subparser = subparsers.add_parser('mv', help="move task(s)")
 subparser.add_argument('trange', type=unicode, default=0, help="task range to move")
-subparser.add_argument('-p', '--parent', type=int, help="new parent for moved task(s)")
-subparser.add_argument('-a', '--after', type=int, help="id of task that will precede task range after move")
+subparser.add_argument('-p', '--parent', type=int, default=0, nargs='?', help="parent id for new task")
+subparser.add_argument('-a', '--after', type=int, default=0, nargs='?', help="id of task that will precede new task")
 subparser.set_defaults(func=move)
 
 
