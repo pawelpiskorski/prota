@@ -10,129 +10,145 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class Project:
-	def __init__(self, fname="tasks.pickle"):
+    def __init__(self, fname="tasks.pickle"):
 
-		if os.path.isfile(fname):
-			logging.debug("loading " + fname)
-			f = open(fname, 'r+')
-			self.p = pickle.load(f)
-			f.close()
-		else:
-			logging.error("no such file")
-			self.p = {
-				'tid': 0,
-				't': {
-					0: {
-						'id': 0,
-						'm': 'the anonymous project',
-						'ch': []
-						# no pid defined in root task
-					}
-				}
-			}
+        if os.path.isfile(fname):
+            logging.debug("loading " + fname)
+            f = open(fname, 'r+')
+            self.p = pickle.load(f)
+            f.close()
+        else:
+            logging.error("no such file")
+            self.start()
 
-	def tasks(self, idlist):
-		for tid in idlist:
-			yield self.p['t'][tid]
+    def start(self):
+        self.p = {
+            'tid': 0,
+            't': {
+                0: {
+                    'id': 0,
+                    'm': 'the anonymous project',
+                    'ch': []
+                    # no pid defined in root task
+                }
+            }
+        }
 
-	def add_task(self, task={}, pid=0, peer_id=0):
-		"""
-		inserts new task to list
-		:param task: template dict of the task
-		:param pid: parent id, root by default
-		:param peer_id: preceding task id. zero appends at the end, nonzero overrides pid with parent of the peer.
-		:return:
-		"""
-		parent = self.p['t'][pid]
-		peer = None
-		if peer_id:
-			peer = self.p['t'][peer_id]
-			pid = peer['pid']
-			parent = self.p['t'][pid]
+    def tasks(self, idlist):
+        for tid in idlist:
+            yield self.p['t'][tid]
 
-		tid = self.p['tid'] + 1
-		self.p['tid'] = tid
-		task['id'] = tid
-		task['pid'] = pid
-		task['ch'] = []
-		if 'm' not in task:
-			task['m'] = 'task ' + str(tid)
-		self.p['t'][tid] = task
-		if peer:
-			parent['ch'].insert(peer_id, tid)
-		else:
-			parent['ch'].append(tid)
-		return task
+    def add_task(self, task={}, pid=0, peer_id=0):
+        """
+        inserts new task to list
+        :param task: template dict of the task
+        :param pid: parent id, root by default
+        :param peer_id: preceding task id. zero appends at the end, nonzero overrides pid with parent of the peer.
+        :return:
+        """
+        parent = self.p['t'][pid]
+        peer = None
+        if peer_id:
+            peer = self.p['t'][peer_id]
+            pid = peer['pid']
+            parent = self.p['t'][pid]
 
-	def childrenids(self, tid):
-		return self.p['t'][tid]['ch']
+        tid = self.p['tid'] + 1
+        self.p['tid'] = tid
+        task['id'] = tid
+        task['pid'] = pid
+        task['ch'] = []
+        if 'm' not in task:
+            task['m'] = 'task ' + str(tid)
+        self.p['t'][tid] = task
+        if peer:
+            parent['ch'].insert(peer_id, tid)
+        else:
+            parent['ch'].append(tid)
+        return task
 
-	def children(self, tid):
-		return self.tasks(self.childrenids(tid))
+    def rm_task(self, tid):
+        """
+        Removes task along with its subtasks.
+        :param tid:
+        :return:
+        """
+        if tid == 0:
+            self.
+        task = self.p['t'].pop(tid)
+        for sub_id in task['ch']:
+            self.rm_task(sub_id)
 
-	def save(self, fname="tasks.pickle"):
-		logging.debug("saving file")
-		f = open(fname, 'w')
-		pickle.dump(self.p, f)
-		f.close()
 
-	def update(self, tid, task):
-		if 'id' in task:
-			del task['id']  # cannot change the task id
-		self.p['t'][tid].update(task)
+    def childrenids(self, tid):
+        return self.p['t'][tid]['ch']
 
-	def pprint(self, idlist, seek, indent=""):
-		for t in self.tasks(idlist):
-			if seek == 0 or seek == t['id']:
-				print indent + '{0:04d}'.format(t['id']) + " " + t['m']
-				self.pprint(t['ch'], 0, indent + " ")
+    def children(self, tid):
+        return self.tasks(self.childrenids(tid))
 
-	def list(self, seek):
-		print self.p['t'][0]['m']
-		self.pprint(self.childrenids(0), seek, ' ')
+    def save(self, fname="tasks.pickle"):
+        logging.debug("saving file")
+        f = open(fname, 'w')
+        pickle.dump(self.p, f)
+        f.close()
+
+    def update(self, tid, task):
+        if 'id' in task:
+            del task['id']  # cannot change the task id
+        self.p['t'][tid].update(task)
+
+    def pprint(self, idlist, seek, indent=""):
+        for t in self.tasks(idlist):
+            if seek == 0 or seek == t['id']:
+                print indent + '{0:04d}'.format(t['id']) + " " + t['m']
+                self.pprint(t['ch'], 0, indent + " ")
+
+    def list(self, seek):
+        print self.p['t'][0]['m']
+        self.pprint(self.childrenids(0), seek, ' ')
 
 
 # commands
 
 def start(params):
-	logging.info("starting projectect: " + params.m)
-	project = Project("")
-	task = {
-		'm': params.m}
-	project.update(0, task)
-	project.save()
+    logging.info("starting projectect: " + params.m)
+    project = Project("")
+    task = {
+        'm': params.m}
+    project.update(0, task)
+    project.save()
 
 
 def add(params):
-	logging.info("adding task: " + params.m)
-	task = {
-		'm': params.m,
-	}
+    logging.info("adding task: " + params.m)
+    task = {
+        'm': params.m,
+    }
 
-	project = Project()
+    project = Project()
 
-	project.add_task(task, pid=params.parent, peer_id=params.after)
-	project.save()
+    project.add_task(task, pid=params.parent, peer_id=params.after)
+    project.save()
 
 
 def ls(params):
-	logging.info("listing task: " + str(params.tid))
-	project = Project()
-	project.list(params.tid)
+    logging.info("listing task: " + str(params.tid))
+    project = Project()
+    project.list(params.tid)
 
 
 def edit(params):
-	logging.info("editing task: " + str(params.tid))
+    logging.info("editing task: " + str(params.tid))
 
 
 def move(params):
-	logging.info("moving task: " + str(params.tid))
+    logging.info("moving task: " + str(params.tid))
 
 
 def remove(params):
-	logging.info("deleting task: " + str(params.tid))
+    logging.info("deleting task: " + str(params.tid))
 
-	
+    
 parser = argparse.ArgumentParser(description='simple projectect TAsk management.')
 subparsers = parser.add_subparsers()
 
