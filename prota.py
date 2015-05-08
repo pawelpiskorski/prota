@@ -77,9 +77,36 @@ class Project:
             self.start()
             return
 
-        task = self.p['t'].pop(tid)
+        task = self.p['t'][tid]
         for sub_id in task['ch']:
             self.rm_task(sub_id)
+
+        self.p['t'].pop(tid)
+        parent = self.p['t'][task['pid']]
+        parent['ch'].remove(tid)
+
+    def mv_task(self, tid, pid=0, peer_id=0):
+        """
+        moves a task
+        :param tid: id of task to move
+        :param pid: new parent id, root by default
+        :param peer_id: new preceding task id. zero appends at the end, nonzero overrides pid with parent of the peer.
+        :return:
+        """
+        task = self.p['t'][tid]
+        old_parent = self.p['t'][task['pid']]
+        # push under new parent
+        if peer_id:
+            pid = self.p['t'][peer_id]['pid']
+            parent = self.p['t'][pid]
+            parent['ch'].insert(peer_id, tid)
+        else:
+            parent = self.p['t'][pid]
+            parent['ch'].append(tid)
+
+        task['pid'] = pid
+        # pop from old parent
+        old_parent['ch'].remove(tid)
 
     def childrenids(self, tid):
         return self.p['t'][tid]['ch']
@@ -125,9 +152,9 @@ def add(params):
     logging.info("adding task: " + params.m)
     task = {
         'm': params.m,
-        'd': params.d,
-        'o': params.o,
-        's': params.s
+        'd': params.deadline,
+        'o': params.owner,
+        's': params.state
     }
 
     project = Project()
@@ -147,9 +174,9 @@ def edit(params):
     logging.info("editing task: " + str(params.tid))
     task = {
         'm': params.m,
-        'd': params.d,
-        'o': params.o,
-        's': params.s
+        'd': params.deadline,
+        'o': params.owner,
+        's': params.state
     }
 
     project = Project()
@@ -157,16 +184,20 @@ def edit(params):
     project.save()
 
 
-
 def move(params):
     logging.info("moving task: " + str(params.tid))
+    project = Project()
+    project.rm_task(params.tid)
+    project.save()
 
 
 def remove(params):
     logging.info("deleting task: " + str(params.tid))
     project = Project()
     project.rm_task(params.tid)
-    
+    project.save()
+
+
 parser = argparse.ArgumentParser(description='simple project TAsk management.')
 subparsers = parser.add_subparsers()
 
@@ -207,6 +238,7 @@ subparser.set_defaults(func=move)
 
 
 params = parser.parse_args()
+logging.debug(str(params))
 params.func(params)
 
 
