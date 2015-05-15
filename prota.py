@@ -104,6 +104,8 @@ class Project:
             parent = self.p['t'][pid]
             parent['ch'].append(tid)
 
+        if pid == task['id']:
+            raise Exception("task cannot be it's own parent")
         task['pid'] = pid
         # pop from old parent
         old_parent['ch'].remove(tid)
@@ -187,7 +189,7 @@ def edit(params):
 def move(params):
     logging.info("moving task: " + str(params.tid))
     project = Project()
-    project.rm_task(params.tid)
+    project.mv_task(params.tid,  pid=params.parent, peer_id=params.after)
     project.save()
 
 
@@ -231,7 +233,7 @@ subparser.add_argument('tid', type=int, default=0, help="id of parent task")
 subparser.set_defaults(func=remove)
 
 subparser = subparsers.add_parser('mv', help="move task(s)")
-subparser.add_argument('trange', type=unicode, default=0, help="task range to move")
+subparser.add_argument('tid', type=int, help="task to move")
 subparser.add_argument('-p', '--parent', type=int, default=0, nargs='?', help="parent id for new task")
 subparser.add_argument('-a', '--after', type=int, default=0, nargs='?', help="id of task that will precede new task")
 subparser.set_defaults(func=move)
