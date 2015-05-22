@@ -9,11 +9,12 @@ import argparse
 logging.basicConfig(level=logging.DEBUG)
 
 class Project:
-    def __init__(self, fname="tasks.pickle"):
+    def __init__(self, filename="tasks.pickle"):
 
-        if os.path.isfile(fname):
-            logging.debug("loading " + fname)
-            f = open(fname, 'r+')
+        self.fileName = filename
+        if os.path.isfile(self.fileName):
+            logging.debug("loading " + self.fileName)
+            f = open(self.fileName, 'r+')
             self.p = pickle.load(f)
             f.close()
         else:
@@ -116,9 +117,11 @@ class Project:
     def children(self, tid):
         return self.tasks(self.childrenids(tid))
 
-    def save(self, fname="tasks.pickle"):
+    def save(self, filename=None):
+        if not filename:
+            filename = self.fileName
         logging.debug("saving file")
-        f = open(fname, 'w')
+        f = open(filename, 'w')
         pickle.dump(self.p, f)
         f.close()
 
