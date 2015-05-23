@@ -5,8 +5,11 @@ import pickle
 import logging
 import os.path
 import argparse
+import difflib
+import pprint
 
 logging.basicConfig(level=logging.DEBUG)
+
 
 class Project:
     def __init__(self, filename="tasks.pickle"):
@@ -29,8 +32,8 @@ class Project:
                     'id': 0,
                     'm': 'the anonymous project',
                     's': 'running',
-                    'ch': []
-                    # no pid defined in root task
+                    'ch': [],
+                    'pid': None  # root task has a special pid
                 }
             }
         }
@@ -107,6 +110,8 @@ class Project:
 
         if pid == task['id']:
             raise Exception("task cannot be it's own parent")
+        if not task['id']:
+            raise Exception("cannot move root task")
         task['pid'] = pid
         # pop from old parent
         old_parent['ch'].remove(tid)
@@ -140,12 +145,45 @@ class Project:
         print self.p['t'][0]['m']
         self.pprint(self.childrenids(0), seek, ' ')
 
+    def parents_of(self, task):
+        pid = task['pid']
+        if not pid:
+            return
+        while pid:
+            task = self.p['t'][pid]
+            yield task
+            pid = task['pid']
+        yield self.p['t'][0]
+
+    @staticmethod
+    def diff(left, right):
+        result = dict()
+        result['+'] = dict([(k, left.p['t'][k]) for k in (set(left.p['t'].keys()) - set(right.p['t'].keys()))])
+        result['-'] = set(right.p['t'].keys()) - set(left.p['t'].keys())
+        result['>'] = dict()  # edited tasks
+        result['^'] = set()  # task that were changed indirectly (their children have changed)
+
+        for (l, r) in [(left.p['t'][k], right.p['t'][k]) for k in set(left.p['t'].keys()) & set(right.p['t'].keys())]:
+            td = dict()
+            # deadline, owner and state may simply either match or not, however todo: child list needs proper diff
+            for binKey in set(l.keys()) & set(['d', 'o', 's', 'pid', 'ch']):
+                if binKey not in r or l[binKey] != r[binKey]:
+                    td[binKey] = l[binKey]
+            if l['m'] != r['m']:
+                td['m'] = list(difflib.ndiff(l['m'], r['m']))  # but for the message use fancier per-line diffs
+            if td:
+                result['>'][l['id']] = td
+                result['^'].update(set([t['id'] for t in left.parents_of(l)]))
+
+        result['^'].difference_update(dict.keys(result['>']))  # remove IDs of tasks that have been also edited directly
+        return result
+
 
 # commands
 
 def start(params):
     logging.info("starting project: " + params.m)
-    project = Project("")
+    project = Project()
     task = {
         'm': params.m
     }
@@ -203,6 +241,14 @@ def remove(params):
     project.save()
 
 
+def diff(params):
+    logging.info("computing diff {} - {}: ".format(params.from_file, params.to_file))
+    right = Project(params.from_file)
+    left = Project(params.to_file)
+    result = Project.diff(left, right)
+    pprint.pprint(result)
+
+
 parser = argparse.ArgumentParser(description='simple project TAsk management.')
 subparsers = parser.add_subparsers()
 
@@ -241,6 +287,10 @@ subparser.add_argument('-p', '--parent', type=int, default=0, nargs='?', help="p
 subparser.add_argument('-a', '--after', type=int, default=0, nargs='?', help="id of task that will precede new task")
 subparser.set_defaults(func=move)
 
+subparser = subparsers.add_parser('diff', help="print diff between two task lists (e.g. to_file-from_file) ")
+subparser.add_argument('from_file', type=unicode, help="right hand file of diff")
+subparser.add_argument('to_file', type=unicode, help="left hand file of diff")
+subparser.set_defaults(func=diff)
 
 params = parser.parse_args()
 logging.debug(str(params))
