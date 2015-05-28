@@ -165,17 +165,21 @@ class Project:
 
         for (l, r) in [(left.p['t'][k], right.p['t'][k]) for k in set(left.p['t'].keys()) & set(right.p['t'].keys())]:
             td = dict()
-            # deadline, owner and state may simply either match or not, however todo: child list needs proper diff
-            for binKey in set(l.keys()) & set(['d', 'o', 's', 'pid', 'ch']):
+            # deadline, owner and state may simply either match or not
+            for binKey in set(l.keys()) & set(['d', 'o', 's', 'pid']):
                 if binKey not in r or l[binKey] != r[binKey]:
                     td[binKey] = l[binKey]
+            differ = difflib.Differ()
             if l['m'] != r['m']:
-                td['m'] = list(difflib.ndiff(l['m'], r['m']))  # but for the message use fancier per-line diffs
+                td['m'] = list(differ.compare(l['m'], r['m']))  # but for the message use fancier per-line diffs
+            if l['ch'] != r['ch']:
+                td['ch'] = list(differ.compare(l['ch'], r['ch']))
+
             if td:
                 result['>'][l['id']] = td
                 result['^'].update(set([t['id'] for t in left.parents_of(l)]))
 
-        result['^'].difference_update(dict.keys(result['>']))  # remove IDs of tasks that have been also edited directly
+        result['^'].difference_update(result['>'].keys())  # remove IDs of tasks that have been also edited directly
         return result
 
 
