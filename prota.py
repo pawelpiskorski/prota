@@ -103,18 +103,34 @@ class Project:
         if peer_id:
             pid = self.p['t'][peer_id]['pid']
             parent = self.p['t'][pid]
-            parent['ch'].insert(peer_id, tid)
+
         else:
             parent = self.p['t'][pid]
-            parent['ch'].append(tid)
+            if parent['ch']:
+                peer_id = parent['ch'][-1]
 
         if pid == task['id']:
             raise Exception("task cannot be it's own parent")
         if not task['id']:
             raise Exception("cannot move root task")
+        if tid in [t['id'] for t in self.parents_of(parent)]:
+            logging.debug("swap: %d is parent of %d." % (tid, pid))
+            # moving task under one of its children:
+            # first make new parent our peer
+            self.mv_task(tid=pid, peer_id=tid)
+            self.list(0)
+            # then do the move
+            self.mv_task(tid=tid, pid=pid, peer_id=peer_id)
+            return
+
         task['pid'] = pid
         # pop from old parent
         old_parent['ch'].remove(tid)
+        if peer_id:
+            parent['ch'].insert(peer_id, tid)
+        else:
+            parent['ch'].append(tid)
+
 
     def childrenids(self, tid):
         return self.p['t'][tid]['ch']
