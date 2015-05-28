@@ -7,6 +7,8 @@ import os.path
 import argparse
 import difflib
 import pprint
+import sys
+import cStringIO
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -151,15 +153,54 @@ class Project:
             del task['id']  # cannot change the task id
         self.p['t'][tid].update(task)
 
-    def pprint(self, idlist, seek, indent=""):
+    def list_pprint_int(self, idlist, seek, indent=""):
         for t in self.tasks(idlist):
             if seek == 0 or seek == t['id']:
                 print indent + '{0:04d}'.format(t['id']) + " " + t['m']
-                self.pprint(t['ch'], 0, indent + " ")
+                self.list_pprint_int(t['ch'], 0, indent + " ")
 
-    def list(self, seek):
+    def list_pprint(self, seek):
         print self.p['t'][0]['m']
-        self.pprint(self.childrenids(0), seek, ' ')
+        self.list_pprint_int(self.childrenids(0), seek, ' ')
+
+    def list_html(self, seek):
+        # out = cStringIO.StringIO()
+        out = sys.stdout
+        print >>out, """<!DOCTYPE html><head><title>"""
+        print >>out, self.p['t'][0]['m'].splitlines()[0]
+        print >>out, """</title>"""
+        print >>out, """
+        <style>
+body {
+    width: 100%; text-align: center;
+    font-family:"Tahoma, Geneva, sans-serif"; font-size:x-large;
+    background-color:#202010;
+}
+#contents {
+    text-align: left;
+    background-color:LightSteelBlue;
+    max-width:900px;
+    border: 2px solid black;
+    margin: 0px auto;
+    padding: 1em;
+}
+h1   {color:blue}
+div.t { margin-left: 1em;}
+div.t span {background-color:LightSlateGray; color:YellowGreen }
+</style>
+</head><body><div id="contents">"""
+        self.list_html_int(self.childrenids(0), seek, out)
+        print >>out, """</div></body></html>"""
+
+
+    def list_html_int(self, idlist, seek, out):
+        for t in self.tasks(idlist):
+            if seek == 0 or seek == t['id']:
+                print >>out, '<div class="t" id="{}">'.format(t['m'])
+                print >>out, '<span>{0:04d}</span>'.format(t['id'])
+                print >>out, t['m']
+                self.list_html_int(t['ch'], 0, out)
+                print >>out, "</div>"
 
     def parents_of(self, task):
         pid = task['pid']
@@ -230,7 +271,10 @@ def add(params):
 def ls(params):
     logging.info("listing task: " + str(params.tid))
     project = Project()
-    project.list(params.tid)
+    if params.format == 'pprint':
+        project.list_pprint(params.tid)
+    elif params.format == 'html':
+        project.list_html(params.tid)
 
 
 def edit(params):
@@ -278,6 +322,7 @@ subparser.set_defaults(func=start)
 
 subparser = subparsers.add_parser('ls', help="list project file")
 subparser.add_argument('tid', type=int, default=0, nargs='?', help="id of task to print, 0 (whole project) by default")
+subparser.add_argument('-f','--format', choices=['pprint', 'html'], default='pprint', nargs='?', help="list format")
 subparser.set_defaults(func=ls)
 
 subparser = subparsers.add_parser('add', help="add new task")
