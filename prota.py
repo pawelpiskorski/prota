@@ -173,7 +173,7 @@ class Project:
         <style>
 body {
     width: 100%; text-align: center;
-    font-family:"Tahoma, Geneva, sans-serif"; font-size:x-large;
+    font-family:"Tahoma, Geneva, sans-serif"; font-size:large;
     background-color:#202010;
 }
 #contents {
@@ -186,20 +186,21 @@ body {
 }
 h1   {color:blue}
 div.t { margin-left: 1em;}
-div.t span {background-color:LightSlateGray; color:YellowGreen }
+h1 span, h2 span, h3 span, h4 span, h5 span, h6 span {background-color:LightSlateGray; color:YellowGreen; font-size:medium }
 </style>
 </head><body><div id="contents">"""
-        self.list_html_int(self.childrenids(0), seek, out)
+        self.list_html_int(self.childrenids(0), seek, out, 0)
         print >>out, """</div></body></html>"""
 
 
-    def list_html_int(self, idlist, seek, out):
+    def list_html_int(self, idlist, seek, out, nesting):
+        tag = ['h1', 'h2', 'h3', 'h4', 'h6'][nesting if nesting <= 4 else 4 ]
+
         for t in self.tasks(idlist):
             if seek == 0 or seek == t['id']:
-                print >>out, '<div class="t" id="{}">'.format(t['m'])
-                print >>out, '<span>{0:04d}</span>'.format(t['id'])
-                print >>out, t['m']
-                self.list_html_int(t['ch'], 0, out)
+                print >>out, '<{tag}><span>{id:04d}</span> {m} </{tag}><div class="t">'.format(tag=tag, id=t['id'], m=t['m'].split('\n', 1)[0])
+                print >>out, '<p>{m}</p>'.format(m='\n'.join(t['m'].split('\n')[1:]).replace('\n','<br />\n'))
+                self.list_html_int(t['ch'], 0, out, nesting+1)
                 print >>out, "</div>"
 
     def parents_of(self, task):
