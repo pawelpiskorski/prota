@@ -229,7 +229,7 @@ h1 span, h2 span, h3 span, h4 span, h5 span, h6 span {background-color:LightSlat
                     td[binKey] = l[binKey]
             differ = difflib.Differ()
             if l['m'] != r['m']:
-                td['m'] = list(differ.compare(l['m'], r['m']))  # but for the message use fancier per-line diffs
+                td['m'] = list(differ.compare(l['m'], r['m']))
             if l['ch'] != r['ch']:
                 td['ch'] = list(differ.compare(l['ch'], r['ch']))
 
@@ -240,6 +240,49 @@ h1 span, h2 span, h3 span, h4 span, h5 span, h6 span {background-color:LightSlat
         result['^'].difference_update(result['>'].keys())  # remove IDs of tasks that have been also edited directly
         return result
 
+    def tree_check(self):
+        """
+        Traces each nodes path to root
+        :return:
+        """
+        for id, task in self.p['t'].enumerate():
+            if id != 0:
+                parents = set()
+                for parent in self.parents_of(task):
+                    if parent['id'] in parents:
+                        # a loop in hierarchy
+                        return False
+                    parents.insert(parent['id'])
+                    if parent['id'] == 0:
+                        break
+            for child in self.children(id):
+                if child['pid'] != id:
+                    return False
+            return True
+
+
+    def diff_to(self, right):
+        return diff(self, right)
+
+    def diff_applies(self, diff):
+        """
+        Check id a diff applies to this Project
+        :param diff:
+        :return:
+        """
+        if set(diff['+'].keys()) & set(self.p['t']).keys():
+            # already have some of the tasks that diff attempts to add
+            return False
+        if set(diff['-'].keys()) & set(self.p['t']).keys() != set(diff['-'].keys()):
+            # some tasks that diff attempts to remove are not present
+            return False
+        if set(diff['>'].keys()) & set(self.p['t']).keys() != set(diff['>'].keys()):
+            # some tasks that diff attempts to edit are not present
+            return False
+        return True
+
+    def apply(self, diff):
+        pass
 
 # commands
 
